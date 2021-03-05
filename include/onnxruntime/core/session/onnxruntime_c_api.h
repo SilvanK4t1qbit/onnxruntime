@@ -7,7 +7,7 @@
 #include <string.h>
 
 // This value is used in structures passed to ORT so that a newer version of ORT will still work with them
-#define ORT_API_VERSION 8
+#define ORT_API_VERSION 7
 
 #ifdef __cplusplus
 extern "C" {
@@ -171,6 +171,11 @@ ORT_RUNTIME_CLASS(ThreadPoolParams);
 ORT_RUNTIME_CLASS(ThreadingOptions);
 ORT_RUNTIME_CLASS(ArenaCfg);
 
+// Experimental API section
+ORT_RUNTIME_CLASS(PipelineSession);
+ORT_RUNTIME_CLASS(RequestBatch);
+ORT_RUNTIME_CLASS(ResponseBatch);
+
 #ifdef _WIN32
 typedef _Return_type_success_(return == 0) OrtStatus* OrtStatusPtr;
 #else
@@ -300,11 +305,14 @@ typedef struct OrtOpenVINOProviderOptions {
 struct OrtApi;
 typedef struct OrtApi OrtApi;
 
+struct OrtExperimentalApi;
+typedef struct OrtExperimentalApi OrtExperimentalApi;
+
 struct OrtApiBase {
   const OrtApi*(ORT_API_CALL* GetApi)(uint32_t version)NO_EXCEPTION;  // Pass in ORT_API_VERSION
   // nullptr will be returned if the version is unsupported, for example when using a runtime older than this header file
-
   const char*(ORT_API_CALL* GetVersionString)() NO_EXCEPTION;
+  const OrtExperimentalApi*(ORT_API_CALL* GetExperimentalApi)() NO_EXCEPTION;
 };
 typedef struct OrtApiBase OrtApiBase;
 
@@ -1229,6 +1237,26 @@ struct OrtCustomOp {
   // Returns the characteristics of the input & output tensors
   OrtCustomOpInputOutputCharacteristic(ORT_API_CALL* GetInputCharacteristic)(_In_ const struct OrtCustomOp* op, _In_ size_t index);
   OrtCustomOpInputOutputCharacteristic(ORT_API_CALL* GetOutputCharacteristic)(_In_ const struct OrtCustomOp* op, _In_ size_t index);
+};
+
+struct OrtExperimentalApi {
+  ORT_API2_STATUS(CreatePipelineSession, _In_ const OrtEnv* env, _In_ const ORTCHAR_T* ensemble_config_file_path,
+                  _Outptr_ OrtPipelineSession** out);
+  ORT_CLASS_RELEASE(PipelineSession);
+  ORT_API2_STATUS(Run, _Inout_ OrtPipelineSession* sess, _In_ const OrtRequestBatch* req_batch,
+                  _Out_ OrtResponseBatch* resp_batch, int num_steps);
+  ORT_API2_STATUS(CreateOrtRequestBatch, _Outptr_ OrtRequestBatch** req_batch);
+  ORT_CLASS_RELEASE(RequestBatch);
+  ORT_API2_STATUS(CreateOrtResponseBatch, _Outptr_ OrtResponseBatch** resp_batch);
+  ORT_CLASS_RELEASE(ResponseBatch);
+  ORT_API2_STATUS(AddRequestToBatch, _Inout_ OrtRequestBatch* req_batch, size_t input_len,
+                  _In_reads_(input_len) const char* const* input_names,
+                  _In_reads_(input_len) const OrtValue* const* input);
+  ORT_API2_STATUS(AddResponseToBatch, _Inout_ OrtResponseBatch* resp_batch, size_t output_names_len,
+                  _In_reads_(output_names_len) const char* const* output_names,
+                  _In_reads_(output_names_len) OrtValue** output, _In_reads_(output_names_len) const OrtMemoryInfo** info);
+  ORT_API2_STATUS(GetOutputValues, _In_ const OrtResponseBatch* resp_batch, _In_ size_t batch_idx, _In_ OrtAllocator* allocator,
+                  _Out_writes_all_(output_count) OrtValue*** output, _Out_ size_t* output_count);
 };
 
 #ifdef __cplusplus

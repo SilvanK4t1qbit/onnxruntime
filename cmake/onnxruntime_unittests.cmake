@@ -321,6 +321,7 @@ set (onnxruntime_shared_lib_test_SRC
 
 if (NOT onnxruntime_MINIMAL_BUILD)
   list(APPEND onnxruntime_shared_lib_test_SRC ${ONNXRUNTIME_SHARED_LIB_TEST_SRC_DIR}/test_inference.cc)
+  list(APPEND onnxruntime_multi_gpu_pipeline_parallelism_test_SRC ${ONNXRUNTIME_SHARED_LIB_TEST_SRC_DIR}/test_multi_gpu_pipeline_parallelism.cc)
 endif()
 
 if(onnxruntime_RUN_ONNX_TESTS)
@@ -901,6 +902,24 @@ if (onnxruntime_BUILD_SHARED_LIB)
             DEPENDS ${all_dependencies}
     )
   endif()
+
+  set(onnxruntime_shared_lib_test_LIBS onnxruntime_mocked_allocator onnxruntime_test_utils onnxruntime_common onnx_proto)
+  if(NOT WIN32)
+    list(APPEND onnxruntime_shared_lib_test_LIBS nsync_cpp)
+  endif()
+  if (onnxruntime_USE_CUDA)
+    list(APPEND onnxruntime_shared_lib_test_LIBS onnxruntime_test_cuda_ops_lib cudart)
+  endif()
+  if (CMAKE_SYSTEM_NAME STREQUAL "Android")
+    list(APPEND onnxruntime_shared_lib_test_LIBS ${android_shared_libs})
+  endif()
+  AddTest(DYN
+          TARGET onnxruntime_multi_gpu_pipeline_parallelism_test
+          SOURCES ${onnxruntime_multi_gpu_pipeline_parallelism_test_SRC} ${onnxruntime_unittest_main_src}
+          LIBS ${onnxruntime_shared_lib_test_LIBS}
+          DEPENDS ${all_dependencies}
+  )
+
 endif()
 
 # the debug node IO functionality uses static variables, so it is best tested
